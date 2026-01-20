@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shapefile + Excel Merger - ICF-SL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { margin: 0; padding: 20px; background-color: #f0f4f8; font-family: 'Oswald', Arial, sans-serif; }
+        .page-container { max-width: 1400px; margin: 0 auto; }
+        .page-header { background: #004080; color: #fff; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; margin-bottom: 15px; }
+        .page-header h1 { font-size: 22px; margin: 10px 0; }
+        .page-header p { font-size: 12px; }
+        .content-card { border: 3px double #004080; border-radius: 10px; padding: 20px; background: #fff; margin-bottom: 15px; }
+        .section-header { background: #004080; color: #fff; padding: 12px 15px; border-radius: 5px; margin-bottom: 15px; font-size: 14px; font-weight: 700; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .form-group { margin-bottom: 10px; }
+        .form-label { display: block; color: #004080; font-size: 12px; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; }
+        .form-select, .form-input { width: 100%; padding: 10px; border: 2px solid #004080; border-radius: 5px; font-family: 'Oswald', sans-serif; font-size: 13px; }
+        .btn-primary { padding: 12px 16px; background: #004080; color: #fff; border: none; border-radius: 5px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Oswald', sans-serif; margin: 5px; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-gold { padding: 12px 16px; background: #ffc107; color: #000; border: none; border-radius: 5px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Oswald', sans-serif; margin: 5px; }
+        .btn-success { padding: 12px 16px; background: #28a745; color: #fff; border: none; border-radius: 5px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Oswald', sans-serif; margin: 5px; }
+        .btn-success:hover { background: #218838; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .upload-zone { border: 2px dashed #004080; border-radius: 8px; padding: 30px; text-align: center; background: #f8f9fa; cursor: pointer; transition: all 0.3s; }
+        .upload-zone:hover { background: #e7f3ff; }
+        .upload-zone.loaded { background: #d4edda; border-color: #28a745; border-style: solid; }
+        .upload-zone h3 { color: #004080; font-size: 16px; margin-bottom: 8px; }
+        .upload-zone p { color: #666; font-size: 12px; margin-bottom: 15px; }
+        
+        .file-input { display: block; width: 100%; padding: 10px; border: 2px solid #004080; border-radius: 5px; background: #fff; font-family: 'Oswald', sans-serif; font-size: 12px; cursor: pointer; }
+        
+        .file-info { background: #d4edda; border: 1px solid #28a745; border-radius: 5px; padding: 12px; margin-top: 12px; text-align: left; }
+        .file-info h4 { color: #155724; font-size: 13px; margin-bottom: 5px; }
+        .file-info p { color: #155724; font-size: 11px; margin: 2px 0; }
+        
+        .key-select { background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .key-select h4 { color: #856404; font-size: 14px; margin-bottom: 10px; }
+        .key-select p { color: #856404; font-size: 12px; margin-bottom: 15px; }
+        
+        .column-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .column-list { max-height: 250px; overflow-y: auto; border: 2px solid #004080; border-radius: 5px; padding: 10px; }
+        .column-list h4 { color: #004080; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; position: sticky; top: 0; background: #fff; padding-bottom: 5px; }
+        
+        .column-item { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 8px 12px; margin-bottom: 6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+        .column-item:hover { background: #e7f3ff; border-color: #004080; }
+        .column-item.selected { background: #cce5ff; border-color: #004080; }
+        .column-item.key-selected { background: #fff3cd; border-color: #ffc107; }
+        .column-item input { width: 16px; height: 16px; cursor: pointer; }
+        .column-item label { cursor: pointer; flex: 1; font-size: 12px; color: #333; }
+        
+        .summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .summary-card { background: #f8f9fa; border: 2px solid #004080; border-radius: 8px; padding: 20px; text-align: center; }
+        .summary-card .value { font-size: 28px; font-weight: 700; color: #004080; }
+        .summary-card .label { font-size: 11px; color: #666; text-transform: uppercase; margin-top: 5px; }
+        .summary-card.success { border-color: #28a745; }
+        .summary-card.success .value { color: #28a745; }
+        .summary-card.warning { border-color: #ffc107; }
+        .summary-card.warning .value { color: #d39e00; }
+        
+        .preview-table { max-height: 280px; overflow: auto; border: 2px solid #004080; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #004080; color: #fff; padding: 10px 8px; text-align: left; position: sticky; top: 0; font-weight: 600; }
+        td { padding: 8px; border-bottom: 1px solid #dee2e6; color: #333; }
+        tr:hover { background: #e7f3ff; }
+        
+        .hidden { display: none !important; }
+        
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,64,128,0.9); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 9999; }
+        .loading-overlay.show { display: flex; }
+        .loading-spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid #ffc107; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: #fff; font-size: 16px; margin-top: 15px; }
+        
+        .notification { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); padding: 12px 25px; border-radius: 5px; font-weight: 600; z-index: 9999; display: none; font-size: 13px; }
+        .notification.success { background: #d4edda; color: #155724; border: 1px solid #28a745; display: block; }
+        .notification.error { background: #f8d7da; color: #721c24; border: 1px solid #dc3545; display: block; }
+        .notification.warning { background: #fff3cd; color: #856404; border: 1px solid #ffc107; display: block; }
+        
+        .page-footer { background: #004080; color: #fff; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; font-size: 12px; }
+        
+        .button-group { text-align: center; margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+        
+        .instructions-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 15px; }
+        .instruction-item { background: #f8f9fa; border: 2px solid #004080; border-radius: 8px; padding: 15px; }
+        .instruction-item h4 { color: #004080; font-size: 13px; margin-bottom: 8px; }
+        .instruction-item p { color: #666; font-size: 11px; line-height: 1.5; }
+        
+        .key-columns-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .key-column-list { max-height: 200px; overflow-y: auto; border: 2px solid #ffc107; border-radius: 5px; padding: 10px; background: #fffdf5; }
+        .key-column-list h4 { color: #856404; font-size: 12px; margin-bottom: 10px; text-transform: uppercase; }
+        
+        .download-section { background: #f0f4f8; border: 2px solid #004080; border-radius: 8px; padding: 20px; margin-top: 20px; }
+        .download-section h4 { color: #004080; font-size: 13px; margin-bottom: 5px; text-transform: uppercase; text-align: center; }
+        .download-section p { color: #666; font-size: 11px; text-align: center; margin-bottom: 15px; }
+        
+        @media (max-width: 768px) { 
+            .upload-grid, .column-grid, .form-row, .summary-cards, .instructions-grid, .key-columns-grid { grid-template-columns: 1fr; } 
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Processing...</div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <div class="page-container">
+        <div class="page-header">
+            <h1>SHAPEFILE + EXCEL MERGER</h1>
+            <p>ICF-SL Data Tools - Add Excel/CSV columns to Shapefile and download updated file</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="content-card">
+            <div class="section-header">1. UPLOAD FILES</div>
+            <div class="upload-grid">
+                <div class="upload-zone" id="shapefileZone" onclick="document.getElementById('shapefileInput').click()">
+                    <h3>Shapefile (ZIP)</h3>
+                    <p>Upload shapefile as ZIP containing .shp, .shx, .dbf, .prj files</p>
+                    <input type="file" id="shapefileInput" class="file-input" accept=".zip" onclick="event.stopPropagation()">
+                    <div id="shapefileInfo" class="file-info hidden"></div>
+                </div>
+                <div class="upload-zone" id="excelZone" onclick="document.getElementById('excelInput').click()">
+                    <h3>Excel / CSV File</h3>
+                    <p>Upload the data file to merge with shapefile</p>
+                    <input type="file" id="excelInput" class="file-input" accept=".csv,.xlsx,.xls" onclick="event.stopPropagation()">
+                    <div id="excelInfo" class="file-info hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Section -->
+        <div id="configSection" class="content-card hidden">
+            <div class="section-header">2. CONFIGURE MERGE</div>
+            
+            <div class="key-select">
+                <h4>SELECT KEY COLUMNS FOR MATCHING</h4>
+                <p>Check the columns to use for matching records between shapefile and Excel. Select the same number of keys from each file - they will be matched in order.</p>
+                <div class="key-columns-grid">
+                    <div class="key-column-list">
+                        <h4>Shapefile Key Column</h4>
+                        <div id="shapeKeyColumns"></div>
+                    </div>
+                    <div class="key-column-list">
+                        <h4>Excel Key Column</h4>
+                        <div id="excelKeyColumns"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="column-grid">
+                <div class="column-list">
+                    <h4>Shapefile Columns (kept)</h4>
+                    <div id="shapeColumns"></div>
+                </div>
+                <div class="column-list">
+                    <h4>Excel Columns to Add</h4>
+                    <div id="excelColumns"></div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="mergeBtn" class="btn-success" disabled onclick="performMerge()">MERGE AND PREVIEW</button>
+                <button class="btn-primary" onclick="resetAll()">RESET</button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="content-card hidden">
+            <div class="section-header">3. MERGE RESULTS</div>
+            
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <div class="value" id="totalFeatures">0</div>
+                    <div class="label">Total Features</div>
+                </div>
+                <div class="summary-card success">
+                    <div class="value" id="matchedFeatures">0</div>
+                    <div class="label">Matched</div>
+                </div>
+                <div class="summary-card warning">
+                    <div class="value" id="unmatchedFeatures">0</div>
+                    <div class="label">Unmatched</div>
+                </div>
+                <div class="summary-card">
+                    <div class="value" id="totalColumns">0</div>
+                    <div class="label">Total Columns</div>
+                </div>
+            </div>
+
+            <div class="section-header">PREVIEW (First 10 Features)</div>
+            <div class="preview-table" id="previewTable"></div>
+
+            <div class="download-section">
+                <h4>Shapefile Components</h4>
+                <p>Download all 4 files and keep them in the same folder with the same name</p>
+                <div class="button-group">
+                    <button class="btn-success" onclick="downloadShp()">DOWNLOAD .SHP</button>
+                    <button class="btn-success" onclick="downloadShx()">DOWNLOAD .SHX</button>
+                    <button class="btn-success" onclick="downloadDbf()">DOWNLOAD .DBF</button>
+                    <button class="btn-success" onclick="downloadPrj()">DOWNLOAD .PRJ</button>
+                </div>
+            </div>
+            
+            <div class="download-section" style="margin-top: 15px;">
+                <h4>Other Formats</h4>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="downloadGeoJson()">DOWNLOAD GEOJSON</button>
+                    <button class="btn-gold" onclick="downloadCsv()">DOWNLOAD CSV</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions Section -->
+        <div id="instructionsSection" class="content-card">
+            <div class="section-header">HOW TO USE</div>
+            <div class="instructions-grid">
+                <div class="instruction-item">
+                    <h4>Step 1: Prepare Shapefile</h4>
+                    <p>ZIP your shapefile (.shp, .shx, .dbf, .prj) into a single .zip file</p>
+                </div>
+                <div class="instruction-item">
+                    <h4>Step 2: Upload Files</h4>
+                    <p>Upload the shapefile ZIP and your Excel/CSV data file</p>
+                </div>
+                <div class="instruction-item">
+                    <h4>Step 3: Select Keys</h4>
+                    <p>Check matching columns from both files (can select multiple for composite keys)</p>
+                </div>
+                <div class="instruction-item">
+                    <h4>Step 4: Download</h4>
+                    <p>Download all 4 shapefile components (.shp, .shx, .dbf, .prj)</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-footer">Informatics Consultancy Firm-Sierra Leone (ICF-SL)</div>
+    </div>
+
+    <script>
+        var shapeData = null;
+        var excelData = null;
+        var mergedGeoJson = null;
+        var originalShapefileArrayBuffer = null;
+        var selectedShapeKeys = [];
+        var selectedExcelKeys = [];
+        var selectedExcelColumns = [];
+
+        document.getElementById('shapefileInput').onchange = function(e) {
+            if (e.target.files.length) handleShapefile(e.target.files[0]);
+        };
+        document.getElementById('excelInput').onchange = function(e) {
+            if (e.target.files.length) handleExcel(e.target.files[0]);
+        };
+
+        function showLoading(t) {
+            document.getElementById('loadingText').textContent = t || 'Processing...';
+            document.getElementById('loadingOverlay').classList.add('show');
+        }
+        function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+        
+        function notify(msg, type) {
+            var n = document.getElementById('notification');
+            n.textContent = msg; n.className = 'notification ' + type;
+            setTimeout(function() { n.className = 'notification'; }, 4000);
+        }
+
+        function handleShapefile(file) {
+            if (!file.name.toLowerCase().endsWith('.zip')) {
+                notify('Please upload a ZIP file containing your shapefile', 'error');
+                return;
+            }
+            showLoading('Reading shapefile...');
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                originalShapefileArrayBuffer = e.target.result;
+                
+                shp(e.target.result).then(function(geojson) {
+                    if (Array.isArray(geojson)) geojson = geojson[0];
+                    
+                    shapeData = {
+                        name: file.name,
+                        geojson: geojson,
+                        features: geojson.features || [],
+                        columns: geojson.features && geojson.features.length > 0 
+                            ? Object.keys(geojson.features[0].properties || {}) 
+                            : []
+                    };
+
+                    document.getElementById('shapefileZone').classList.add('loaded');
+                    document.getElementById('shapefileInfo').classList.remove('hidden');
+                    document.getElementById('shapefileInfo').innerHTML = 
+                        '<h4>' + file.name + '</h4>' +
+                        '<p><strong>Features:</strong> ' + shapeData.features.length + '</p>' +
+                        '<p><strong>Columns:</strong> ' + shapeData.columns.length + '</p>' +
+                        '<p><strong>Type:</strong> ' + (geojson.features[0]?.geometry?.type || 'Unknown') + '</p>';
+
+                    hideLoading();
+                    notify('Shapefile loaded: ' + shapeData.features.length + ' features', 'success');
+                    checkBothLoaded();
+                }).catch(function(err) {
+                    hideLoading();
+                    notify('Error reading shapefile: ' + err.message, 'error');
+                    console.error(err);
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleExcel(file) {
+            showLoading('Reading Excel/CSV...');
+            var name = file.name.toLowerCase();
+
+            if (name.endsWith('.csv')) {
+                Papa.parse(file, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        processExcelData(results.data, results.meta.fields || [], file.name);
+                    },
+                    error: function(err) {
+                        hideLoading();
+                        notify('Error reading CSV: ' + err.message, 'error');
+                    }
+                });
+            } else {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        var sheet = wb.Sheets[wb.SheetNames[0]];
+                        var data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                        var cols = data.length > 0 ? Object.keys(data[0]) : [];
+                        processExcelData(data, cols, file.name);
+                    } catch (err) {
+                        hideLoading();
+                        notify('Error reading Excel: ' + err.message, 'error');
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function processExcelData(data, columns, filename) {
+            excelData = {
+                name: filename,
+                data: data,
+                columns: columns,
+                rowCount: data.length
+            };
+
+            document.getElementById('excelZone').classList.add('loaded');
+            document.getElementById('excelInfo').classList.remove('hidden');
+            document.getElementById('excelInfo').innerHTML = 
+                '<h4>' + filename + '</h4>' +
+                '<p><strong>Rows:</strong> ' + data.length + '</p>' +
+                '<p><strong>Columns:</strong> ' + columns.length + '</p>';
+
+            hideLoading();
+            notify('Excel loaded: ' + data.length + ' rows', 'success');
+            checkBothLoaded();
+        }
+
+        function checkBothLoaded() {
+            if (shapeData && excelData) {
+                populateConfig();
+                document.getElementById('configSection').classList.remove('hidden');
+                document.getElementById('instructionsSection').classList.add('hidden');
+            }
+        }
+
+        function populateConfig() {
+            var shapeKeyDiv = document.getElementById('shapeKeyColumns');
+            shapeKeyDiv.innerHTML = '';
+            shapeData.columns.forEach(function(col) {
+                var div = document.createElement('div');
+                div.className = 'column-item';
+                div.innerHTML = 
+                    '<input type="checkbox" id="shapeKey_' + col + '" value="' + col + '">' +
+                    '<label for="shapeKey_' + col + '">' + col + '</label>';
+                div.onclick = function(e) {
+                    if (e.target.tagName !== 'INPUT') {
+                        var cb = div.querySelector('input');
+                        cb.checked = !cb.checked;
+                    }
+                    div.classList.toggle('key-selected', div.querySelector('input').checked);
+                    updateSelectedShapeKeys();
+                };
+                shapeKeyDiv.appendChild(div);
+            });
+
+            var excelKeyDiv = document.getElementById('excelKeyColumns');
+            excelKeyDiv.innerHTML = '';
+            excelData.columns.forEach(function(col) {
+                var div = document.createElement('div');
+                div.className = 'column-item';
+                div.innerHTML = 
+                    '<input type="checkbox" id="excelKey_' + col + '" value="' + col + '">' +
+                    '<label for="excelKey_' + col + '">' + col + '</label>';
+                div.onclick = function(e) {
+                    if (e.target.tagName !== 'INPUT') {
+                        var cb = div.querySelector('input');
+                        cb.checked = !cb.checked;
+                    }
+                    div.classList.toggle('key-selected', div.querySelector('input').checked);
+                    updateSelectedExcelKeys();
+                };
+                excelKeyDiv.appendChild(div);
+            });
+
+            var shapeColsDiv = document.getElementById('shapeColumns');
+            shapeColsDiv.innerHTML = '';
+            shapeData.columns.forEach(function(col) {
+                shapeColsDiv.innerHTML += 
+                    '<div class="column-item">' +
+                    '<span style="color: #28a745; font-weight: bold;">+</span>' +
+                    '<label>' + col + '</label>' +
+                    '</div>';
+            });
+
+            var excelColsDiv = document.getElementById('excelColumns');
+            excelColsDiv.innerHTML = '';
+            excelData.columns.forEach(function(col) {
+                var div = document.createElement('div');
+                div.className = 'column-item';
+                div.innerHTML = 
+                    '<input type="checkbox" id="excelCol_' + col + '" value="' + col + '">' +
+                    '<label for="excelCol_' + col + '">' + col + '</label>';
+                div.onclick = function(e) {
+                    if (e.target.tagName !== 'INPUT') {
+                        var cb = div.querySelector('input');
+                        cb.checked = !cb.checked;
+                    }
+                    div.classList.toggle('selected', div.querySelector('input').checked);
+                    updateSelectedColumns();
+                };
+                excelColsDiv.appendChild(div);
+            });
+        }
+
+        function updateSelectedShapeKeys() {
+            selectedShapeKeys = [];
+            document.querySelectorAll('#shapeKeyColumns input:checked').forEach(function(cb) {
+                selectedShapeKeys.push(cb.value);
+            });
+            updateMergeButton();
+        }
+
+        function updateSelectedExcelKeys() {
+            selectedExcelKeys = [];
+            document.querySelectorAll('#excelKeyColumns input:checked').forEach(function(cb) {
+                selectedExcelKeys.push(cb.value);
+            });
+            updateMergeButton();
+        }
+
+        function updateMergeButton() {
+            document.getElementById('mergeBtn').disabled = selectedShapeKeys.length === 0 || selectedExcelKeys.length === 0;
+        }
+
+        function updateSelectedColumns() {
+            selectedExcelColumns = [];
+            document.querySelectorAll('#excelColumns input:checked').forEach(function(cb) {
+                selectedExcelColumns.push(cb.value);
+            });
+        }
+
+        function performMerge() {
+            if (selectedShapeKeys.length === 0 || selectedExcelKeys.length === 0) {
+                notify('Please select key columns for both files', 'error');
+                return;
+            }
+
+            if (selectedShapeKeys.length !== selectedExcelKeys.length) {
+                notify('Please select the same number of key columns from each file', 'error');
+                return;
+            }
+
+            updateSelectedColumns();
+            if (selectedExcelColumns.length === 0) {
+                notify('Please select at least one Excel column to add', 'warning');
+                return;
+            }
+
+            showLoading('Merging data...');
+
+            setTimeout(function() {
+                try {
+                    var excelLookup = {};
+                    excelData.data.forEach(function(row) {
+                        var keyParts = selectedExcelKeys.map(function(k) {
+                            return String(row[k] || '').trim().toLowerCase();
+                        });
+                        var key = keyParts.join('||');
+                        if (key && key !== keyParts.map(function() { return ''; }).join('||')) {
+                            excelLookup[key] = row;
+                        }
+                    });
+
+                    mergedGeoJson = JSON.parse(JSON.stringify(shapeData.geojson));
+                    var matched = 0, unmatched = 0;
+
+                    mergedGeoJson.features.forEach(function(feature) {
+                        var keyParts = selectedShapeKeys.map(function(k) {
+                            return String(feature.properties[k] || '').trim().toLowerCase();
+                        });
+                        var key = keyParts.join('||');
+                        var excelRow = excelLookup[key];
+
+                        if (excelRow) {
+                            matched++;
+                            selectedExcelColumns.forEach(function(col) {
+                                var newColName = col;
+                                if (feature.properties.hasOwnProperty(col)) {
+                                    newColName = 'xl_' + col;
+                                }
+                                feature.properties[newColName] = excelRow[col];
+                            });
+                            feature.properties._matched = 'Yes';
+                        } else {
+                            unmatched++;
+                            selectedExcelColumns.forEach(function(col) {
+                                var newColName = col;
+                                if (feature.properties.hasOwnProperty(col)) {
+                                    newColName = 'xl_' + col;
+                                }
+                                feature.properties[newColName] = null;
+                            });
+                            feature.properties._matched = 'No';
+                        }
+                    });
+
+                    var allColumns = mergedGeoJson.features.length > 0 
+                        ? Object.keys(mergedGeoJson.features[0].properties) 
+                        : [];
+
+                    document.getElementById('totalFeatures').textContent = mergedGeoJson.features.length;
+                    document.getElementById('matchedFeatures').textContent = matched;
+                    document.getElementById('unmatchedFeatures').textContent = unmatched;
+                    document.getElementById('totalColumns').textContent = allColumns.length;
+
+                    displayPreview(mergedGeoJson.features.slice(0, 10), allColumns);
+
+                    document.getElementById('resultsSection').classList.remove('hidden');
+                    hideLoading();
+                    notify('Merge complete! ' + matched + ' matched, ' + unmatched + ' unmatched', 'success');
+                    document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+
+                } catch (err) {
+                    hideLoading();
+                    notify('Error during merge: ' + err.message, 'error');
+                    console.error(err);
+                }
+            }, 100);
+        }
+
+        function displayPreview(features, columns) {
+            if (features.length === 0) {
+                document.getElementById('previewTable').innerHTML = '<p style="padding: 20px; color: #666;">No data to preview</p>';
+                return;
+            }
+
+            var displayCols = columns.filter(function(c) { return c !== '_matched'; }).slice(0, 8);
+            
+            var html = '<table><thead><tr>';
+            displayCols.forEach(function(col) {
+                html += '<th>' + col + '</th>';
+            });
+            html += '<th>Matched</th></tr></thead><tbody>';
+
+            features.forEach(function(f) {
+                html += '<tr>';
+                displayCols.forEach(function(col) {
+                    var val = f.properties[col];
+                    html += '<td>' + (val !== null && val !== undefined ? val : '-') + '</td>';
+                });
+                var matchStyle = f.properties._matched === 'Yes' ? 'color: #28a745; font-weight: bold;' : 'color: #dc3545; font-weight: bold;';
+                html += '<td style="' + matchStyle + '">' + f.properties._matched + '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            if (columns.length > 8) {
+                html += '<p style="padding: 10px; color: #666; font-size: 11px;">Showing 8 of ' + columns.length + ' columns</p>';
+            }
+            document.getElementById('previewTable').innerHTML = html;
+        }
+
+        // ============ SHAPEFILE GENERATION FUNCTIONS ============
+        
+        function getCleanGeoJson() {
+            var cleanGeoJson = JSON.parse(JSON.stringify(mergedGeoJson));
+            cleanGeoJson.features.forEach(function(f) {
+                delete f.properties._matched;
+                var newProps = {};
+                var usedKeys = {};
+                Object.keys(f.properties).forEach(function(key) {
+                    var shortKey = key.substring(0, 10).replace(/[^a-zA-Z0-9_]/g, '_');
+                    var finalKey = shortKey;
+                    var counter = 1;
+                    while (usedKeys[finalKey] && counter < 100) {
+                        finalKey = shortKey.substring(0, 7) + '_' + counter;
+                        counter++;
+                    }
+                    usedKeys[finalKey] = true;
+                    newProps[finalKey] = f.properties[key];
+                });
+                f.properties = newProps;
+            });
+            return cleanGeoJson;
+        }
+
+        // Generate SHP file
+        function generateShp(geojson) {
+            var features = geojson.features;
+            var geomType = features[0].geometry.type;
+            var shpType;
+            
+            if (geomType === 'Point') shpType = 1;
+            else if (geomType === 'MultiPoint') shpType = 8;
+            else if (geomType === 'LineString' || geomType === 'MultiLineString') shpType = 3;
+            else if (geomType === 'Polygon' || geomType === 'MultiPolygon') shpType = 5;
+            else shpType = 5;
+
+            // Calculate bounds
+            var xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+            features.forEach(function(f) {
+                var coords = getAllCoords(f.geometry);
+                coords.forEach(function(c) {
+                    if (c[0] < xmin) xmin = c[0];
+                    if (c[0] > xmax) xmax = c[0];
+                    if (c[1] < ymin) ymin = c[1];
+                    if (c[1] > ymax) ymax = c[1];
+                });
+            });
+
+            // Calculate content length
+            var recordsLength = 0;
+            features.forEach(function(f) {
+                recordsLength += 8 + getRecordContentLength(f.geometry, shpType);
+            });
+
+            var fileLength = 100 + recordsLength;
+            var buffer = new ArrayBuffer(fileLength);
+            var view = new DataView(buffer);
+
+            // File header (100 bytes)
+            view.setInt32(0, 9994, false); // File code (big endian)
+            view.setInt32(24, fileLength / 2, false); // File length in 16-bit words (big endian)
+            view.setInt32(28, 1000, true); // Version (little endian)
+            view.setInt32(32, shpType, true); // Shape type (little endian)
+            view.setFloat64(36, xmin, true);
+            view.setFloat64(44, ymin, true);
+            view.setFloat64(52, xmax, true);
+            view.setFloat64(60, ymax, true);
+
+            // Write records
+            var offset = 100;
+            features.forEach(function(f, i) {
+                var contentLength = getRecordContentLength(f.geometry, shpType);
+                view.setInt32(offset, i + 1, false); // Record number (big endian)
+                view.setInt32(offset + 4, contentLength / 2, false); // Content length (big endian)
+                offset += 8;
+                offset = writeGeometry(view, offset, f.geometry, shpType);
+            });
+
+            return buffer;
+        }
+
+        function getAllCoords(geometry) {
+            var coords = [];
+            if (geometry.type === 'Point') {
+                coords.push(geometry.coordinates);
+            } else if (geometry.type === 'MultiPoint' || geometry.type === 'LineString') {
+                coords = geometry.coordinates;
+            } else if (geometry.type === 'MultiLineString' || geometry.type === 'Polygon') {
+                geometry.coordinates.forEach(function(ring) {
+                    coords = coords.concat(ring);
+                });
+            } else if (geometry.type === 'MultiPolygon') {
+                geometry.coordinates.forEach(function(poly) {
+                    poly.forEach(function(ring) {
+                        coords = coords.concat(ring);
+                    });
+                });
+            }
+            return coords;
+        }
+
+        function getRecordContentLength(geometry, shpType) {
+            if (shpType === 1) return 20; // Point
+            
+            var numParts = 0, numPoints = 0;
+            if (geometry.type === 'LineString') {
+                numParts = 1;
+                numPoints = geometry.coordinates.length;
+            } else if (geometry.type === 'MultiLineString') {
+                numParts = geometry.coordinates.length;
+                geometry.coordinates.forEach(function(line) { numPoints += line.length; });
+            } else if (geometry.type === 'Polygon') {
+                numParts = geometry.coordinates.length;
+                geometry.coordinates.forEach(function(ring) { numPoints += ring.length; });
+            } else if (geometry.type === 'MultiPolygon') {
+                geometry.coordinates.forEach(function(poly) {
+                    numParts += poly.length;
+                    poly.forEach(function(ring) { numPoints += ring.length; });
+                });
+            }
+            return 44 + numParts * 4 + numPoints * 16;
+        }
+
+        function writeGeometry(view, offset, geometry, shpType) {
+            view.setInt32(offset, shpType, true);
+            offset += 4;
+
+            if (shpType === 1) { // Point
+                view.setFloat64(offset, geometry.coordinates[0], true);
+                view.setFloat64(offset + 8, geometry.coordinates[1], true);
+                return offset + 16;
+            }
+
+            // Get bounds and parts/points
+            var coords = getAllCoords(geometry);
+            var xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+            coords.forEach(function(c) {
+                if (c[0] < xmin) xmin = c[0];
+                if (c[0] > xmax) xmax = c[0];
+                if (c[1] < ymin) ymin = c[1];
+                if (c[1] > ymax) ymax = c[1];
+            });
+
+            view.setFloat64(offset, xmin, true); offset += 8;
+            view.setFloat64(offset, ymin, true); offset += 8;
+            view.setFloat64(offset, xmax, true); offset += 8;
+            view.setFloat64(offset, ymax, true); offset += 8;
+
+            var parts = [];
+            var points = [];
+            
+            if (geometry.type === 'LineString') {
+                parts.push(0);
+                points = geometry.coordinates;
+            } else if (geometry.type === 'MultiLineString') {
+                var idx = 0;
+                geometry.coordinates.forEach(function(line) {
+                    parts.push(idx);
+                    points = points.concat(line);
+                    idx += line.length;
+                });
+            } else if (geometry.type === 'Polygon') {
+                var idx = 0;
+                geometry.coordinates.forEach(function(ring) {
+                    parts.push(idx);
+                    points = points.concat(ring);
+                    idx += ring.length;
+                });
+            } else if (geometry.type === 'MultiPolygon') {
+                var idx = 0;
+                geometry.coordinates.forEach(function(poly) {
+                    poly.forEach(function(ring) {
+                        parts.push(idx);
+                        points = points.concat(ring);
+                        idx += ring.length;
+                    });
+                });
+            }
+
+            view.setInt32(offset, parts.length, true); offset += 4;
+            view.setInt32(offset, points.length, true); offset += 4;
+
+            parts.forEach(function(p) {
+                view.setInt32(offset, p, true);
+                offset += 4;
+            });
+
+            points.forEach(function(pt) {
+                view.setFloat64(offset, pt[0], true);
+                view.setFloat64(offset + 8, pt[1], true);
+                offset += 16;
+            });
+
+            return offset;
+        }
+
+        // Generate SHX file
+        function generateShx(geojson) {
+            var features = geojson.features;
+            var geomType = features[0].geometry.type;
+            var shpType;
+            
+            if (geomType === 'Point') shpType = 1;
+            else if (geomType === 'LineString' || geomType === 'MultiLineString') shpType = 3;
+            else shpType = 5;
+
+            var xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+            features.forEach(function(f) {
+                var coords = getAllCoords(f.geometry);
+                coords.forEach(function(c) {
+                    if (c[0] < xmin) xmin = c[0];
+                    if (c[0] > xmax) xmax = c[0];
+                    if (c[1] < ymin) ymin = c[1];
+                    if (c[1] > ymax) ymax = c[1];
+                });
+            });
+
+            var fileLength = 100 + features.length * 8;
+            var buffer = new ArrayBuffer(fileLength);
+            var view = new DataView(buffer);
+
+            view.setInt32(0, 9994, false);
+            view.setInt32(24, fileLength / 2, false);
+            view.setInt32(28, 1000, true);
+            view.setInt32(32, shpType, true);
+            view.setFloat64(36, xmin, true);
+            view.setFloat64(44, ymin, true);
+            view.setFloat64(52, xmax, true);
+            view.setFloat64(60, ymax, true);
+
+            var shpOffset = 50; // 100 bytes / 2
+            features.forEach(function(f, i) {
+                var contentLength = getRecordContentLength(f.geometry, shpType);
+                view.setInt32(100 + i * 8, shpOffset, false);
+                view.setInt32(100 + i * 8 + 4, contentLength / 2, false);
+                shpOffset += 4 + contentLength / 2;
+            });
+
+            return buffer;
+        }
+
+        // Generate DBF file
+        function generateDbf(geojson) {
+            var features = geojson.features;
+            var props = features[0].properties;
+            var fieldNames = Object.keys(props);
+
+            // Determine field types and sizes
+            var fields = fieldNames.map(function(name) {
+                var maxLen = 10;
+                var type = 'C';
+                features.forEach(function(f) {
+                    var val = f.properties[name];
+                    if (val !== null && val !== undefined) {
+                        var len = String(val).length;
+                        if (len > maxLen) maxLen = len;
+                        if (typeof val === 'number' && !Number.isInteger(val)) type = 'N';
+                    }
+                });
+                maxLen = Math.min(maxLen, 254);
+                return { name: name.substring(0, 10), type: type, size: maxLen };
+            });
+
+            var headerSize = 32 + fields.length * 32 + 1;
+            var recordSize = 1 + fields.reduce(function(sum, f) { return sum + f.size; }, 0);
+            var fileSize = headerSize + features.length * recordSize + 1;
+
+            var buffer = new ArrayBuffer(fileSize);
+            var view = new DataView(buffer);
+            var uint8 = new Uint8Array(buffer);
+
+            // Header
+            view.setUint8(0, 3); // Version
+            var now = new Date();
+            view.setUint8(1, now.getFullYear() - 1900);
+            view.setUint8(2, now.getMonth() + 1);
+            view.setUint8(3, now.getDate());
+            view.setUint32(4, features.length, true);
+            view.setUint16(8, headerSize, true);
+            view.setUint16(10, recordSize, true);
+
+            // Field descriptors
+            var fieldOffset = 32;
+            fields.forEach(function(field) {
+                for (var i = 0; i < 11; i++) {
+                    uint8[fieldOffset + i] = i < field.name.length ? field.name.charCodeAt(i) : 0;
+                }
+                uint8[fieldOffset + 11] = field.type.charCodeAt(0);
+                uint8[fieldOffset + 16] = field.size;
+                fieldOffset += 32;
+            });
+            uint8[fieldOffset] = 0x0D; // Header terminator
+
+            // Records
+            var recordOffset = headerSize;
+            features.forEach(function(f) {
+                uint8[recordOffset] = 0x20; // Not deleted
+                var pos = recordOffset + 1;
+                fields.forEach(function(field) {
+                    var val = f.properties[field.name];
+                    var str = val !== null && val !== undefined ? String(val) : '';
+                    str = str.substring(0, field.size).padEnd(field.size, ' ');
+                    for (var i = 0; i < field.size; i++) {
+                        uint8[pos + i] = i < str.length ? str.charCodeAt(i) : 0x20;
+                    }
+                    pos += field.size;
+                });
+                recordOffset += recordSize;
+            });
+            uint8[recordOffset] = 0x1A; // EOF
+
+            return buffer;
+        }
+
+        // Download functions
+        function downloadShp() {
+            if (!mergedGeoJson) { notify('No data - run merge first', 'error'); return; }
+            showLoading('Generating SHP...');
+            setTimeout(function() {
+                try {
+                    var geojson = getCleanGeoJson();
+                    var buffer = generateShp(geojson);
+                    var blob = new Blob([buffer], { type: 'application/octet-stream' });
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'merged.shp';
+                    a.click();
+                    hideLoading();
+                    notify('SHP downloaded', 'success');
+                } catch (err) {
+                    hideLoading();
+                    notify('Error: ' + err.message, 'error');
+                    console.error(err);
+                }
+            }, 100);
+        }
+
+        function downloadShx() {
+            if (!mergedGeoJson) { notify('No data - run merge first', 'error'); return; }
+            showLoading('Generating SHX...');
+            setTimeout(function() {
+                try {
+                    var geojson = getCleanGeoJson();
+                    var buffer = generateShx(geojson);
+                    var blob = new Blob([buffer], { type: 'application/octet-stream' });
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'merged.shx';
+                    a.click();
+                    hideLoading();
+                    notify('SHX downloaded', 'success');
+                } catch (err) {
+                    hideLoading();
+                    notify('Error: ' + err.message, 'error');
+                    console.error(err);
+                }
+            }, 100);
+        }
+
+        function downloadDbf() {
+            if (!mergedGeoJson) { notify('No data - run merge first', 'error'); return; }
+            showLoading('Generating DBF...');
+            setTimeout(function() {
+                try {
+                    var geojson = getCleanGeoJson();
+                    var buffer = generateDbf(geojson);
+                    var blob = new Blob([buffer], { type: 'application/octet-stream' });
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'merged.dbf';
+                    a.click();
+                    hideLoading();
+                    notify('DBF downloaded', 'success');
+                } catch (err) {
+                    hideLoading();
+                    notify('Error: ' + err.message, 'error');
+                    console.error(err);
+                }
+            }, 100);
+        }
+
+        function downloadPrj() {
+            if (!mergedGeoJson) { notify('No data - run merge first', 'error'); return; }
+            var prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]';
+            var blob = new Blob([prj], { type: 'text/plain' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'merged.prj';
+            a.click();
+            notify('PRJ downloaded', 'success');
+        }
+
+        function downloadGeoJson() {
+            if (!mergedGeoJson) { notify('No data', 'error'); return; }
+            var cleanGeoJson = JSON.parse(JSON.stringify(mergedGeoJson));
+            cleanGeoJson.features.forEach(function(f) { delete f.properties._matched; });
+            var blob = new Blob([JSON.stringify(cleanGeoJson, null, 2)], { type: 'application/json' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'merged.geojson';
+            a.click();
+            notify('GeoJSON downloaded', 'success');
+        }
+
+        function downloadCsv() {
+            if (!mergedGeoJson || !mergedGeoJson.features.length) { notify('No data', 'error'); return; }
+            var features = mergedGeoJson.features;
+            var columns = Object.keys(features[0].properties).filter(function(c) { return c !== '_matched'; });
+            var csv = columns.join(',') + '\n';
+            features.forEach(function(f) {
+                var row = columns.map(function(col) {
+                    var val = f.properties[col];
+                    if (val === null || val === undefined) return '';
+                    val = String(val);
+                    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                        val = '"' + val.replace(/"/g, '""') + '"';
+                    }
+                    return val;
+                });
+                csv += row.join(',') + '\n';
+            });
+            var blob = new Blob([csv], { type: 'text/csv' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'merged.csv';
+            a.click();
+            notify('CSV downloaded', 'success');
+        }
+
+        function resetAll() {
+            shapeData = null;
+            excelData = null;
+            mergedGeoJson = null;
+            originalShapefileArrayBuffer = null;
+            selectedShapeKeys = [];
+            selectedExcelKeys = [];
+            selectedExcelColumns = [];
+
+            document.getElementById('shapefileInput').value = '';
+            document.getElementById('excelInput').value = '';
+            document.getElementById('shapefileZone').classList.remove('loaded');
+            document.getElementById('excelZone').classList.remove('loaded');
+            document.getElementById('shapefileInfo').classList.add('hidden');
+            document.getElementById('excelInfo').classList.add('hidden');
+            document.getElementById('configSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('instructionsSection').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
